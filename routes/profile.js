@@ -18,7 +18,7 @@ router.get('/', authenticateToken, async (req, res) => {
 // Update profile
 router.put('/', authenticateToken, async (req, res) => {
   try {
-    const { memberSince, preferences, receiveEmails } = req.body; // include receiveEmails if used
+    const { memberSince, preferences, receiveEmails } = req.body;
 
     const updatedProfile = await Profile.findByIdAndUpdate(
       req.user.userId,
