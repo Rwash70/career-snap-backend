@@ -18,7 +18,7 @@ mongoose
 // Middleware
 app.use(express.json());
 
-// CORS config
+// CORS config - allow your frontend origin and credentials
 app.use(
   cors({
     origin: 'http://localhost:5173',
@@ -33,7 +33,7 @@ app.get('/', (req, res) => {
 
 // Profile schema + model
 const profileSchema = new mongoose.Schema({
-  name: String,
+  name: { type: String },
   email: { type: String, unique: true, required: true },
   password: { type: String, required: true },
   memberSince: String,
@@ -43,24 +43,93 @@ const profileSchema = new mongoose.Schema({
 
 const Profile = mongoose.model('Profile', profileSchema);
 
-// Signup route with password hashing
+// --- SavedJob schema + model ---
+const savedJobSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Profile',
+    required: true,
+  },
+  position: String,
+  company: String,
+  url: String,
+  savedAt: { type: Date, default: Date.now },
+});
+
+const SavedJob = mongoose.model('SavedJob', savedJobSchema);
+
+// Middleware to verify JWT token on protected routes
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.sendStatus(401); // Unauthorized
+
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || 'your_jwt_secret_key',
+    (err, user) => {
+      if (err) return res.sendStatus(403); // Forbidden
+      req.user = user;
+      next();
+    }
+  );
+}
+
+// --- Saved Jobs routes ---
+// Get saved jobs for logged-in user
+app.get('/api/savedJobs/me', authenticateToken, async (req, res) => {
+  try {
+    const jobs = await SavedJob.find({ userId: req.user.userId });
+    res.json(jobs);
+  } catch (err) {
+    console.error('Error fetching saved jobs:', err);
+    res.status(500).json({ message: 'Server error fetching saved jobs' });
+  }
+});
+
+// Save a new job for logged-in user
+app.post('/api/savedJobs', authenticateToken, async (req, res) => {
+  try {
+    const { position, company, url } = req.body;
+
+    const newJob = new SavedJob({
+      userId: req.user.userId,
+      position,
+      company,
+      url,
+    });
+
+    await newJob.save();
+    res.status(201).json({ message: 'Job saved', job: newJob });
+  } catch (err) {
+    console.error('Error saving job:', err);
+    res.status(500).json({ message: 'Server error saving job' });
+  }
+});
+
+// Signup route with password hashing and upsert logic
 app.post('/signup', async (req, res) => {
   try {
     const { name, email, password, memberSince, receiveEmails, preferences } =
       req.body;
 
+    // Hash password
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    // Check if user exists
     let profile = await Profile.findOne({ email });
 
     if (profile) {
+      // Update existing user info and password
       profile.name = name;
       profile.password = hashedPassword;
       profile.memberSince = memberSince;
       profile.receiveEmails = receiveEmails;
       profile.preferences = preferences;
     } else {
+      // Create new user
       profile = new Profile({
         name,
         email,
@@ -74,8 +143,8 @@ app.post('/signup', async (req, res) => {
     await profile.save();
     res.json({ message: 'User signed up', profile });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Signup error:', err);
+    res.status(500).json({ message: 'Server error during signup' });
   }
 });
 
@@ -103,42 +172,12 @@ app.post('/signin', async (req, res) => {
 
     res.json({ message: 'Sign in successful', token, profile });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Signin error:', err);
+    res.status(500).json({ message: 'Server error during signin' });
   }
 });
 
-// Middleware to verify JWT token on protected routes
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  console.log('Token:', token);
-
-  if (!token) return res.sendStatus(401);
-
-  console.log('JWT Secret:', process.env.JWT_SECRET || 'your_jwt_secret_key');
-  jwt.verify(
-    token,
-    process.env.JWT_SECRET || 'your_jwt_secret_key',
-    (err, user) => {
-      if (err) return res.sendStatus(403);
-      req.user = user;
-      next();
-    }
-  );
-}
-
-// // jwt.verify(token, jwtSecret, (err, user) => {
-// //   if (err) {
-// //     console.error('JWT verification error:', err);
-// //     return res.sendStatus(403);
-// //   }
-// //   req.user = user;
-// //   next();
-// });
-
-// Example protected route - Get profile
+// Protected route: Get profile
 app.get('/profile', authenticateToken, async (req, res) => {
   try {
     const profile = await Profile.findById(req.user.userId);
@@ -147,12 +186,12 @@ app.get('/profile', authenticateToken, async (req, res) => {
     }
     res.json(profile);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Get Profile error:', err);
+    res.status(500).json({ message: 'Server error retrieving profile' });
   }
 });
 
-// Edit profile route (only memberSince and preferences)
+// Protected route: Edit profile (only memberSince and preferences)
 app.put('/profile', authenticateToken, async (req, res) => {
   try {
     const { memberSince, preferences } = req.body;
@@ -172,41 +211,8 @@ app.put('/profile', authenticateToken, async (req, res) => {
       profile: updatedProfile,
     });
   } catch (err) {
-    console.error('Edit Profile Error:', err);
+    console.error('Edit Profile error:', err);
     res.status(500).json({ message: 'Server error during profile update' });
-  }
-});
-
-// Password reset route (protected)
-app.post('/reset-password', authenticateToken, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ message: 'Both current and new passwords are required' });
-    }
-
-    const user = await Profile.findById(req.user.userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Current password is incorrect' });
-    }
-
-    const saltRounds = 10;
-    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
-    user.password = hashedNewPassword;
-    await user.save();
-
-    res.json({ message: 'Password updated successfully' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error during password reset' });
   }
 });
 
