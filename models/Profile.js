@@ -7,6 +7,10 @@ const profileSchema = new mongoose.Schema({
   memberSince: { type: String },
   receiveEmails: { type: Boolean },
   preferences: { type: String },
+
+  // For password reset
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
 });
 
 module.exports = mongoose.model('Profile', profileSchema);

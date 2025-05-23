@@ -9,7 +9,7 @@ const savedJobsRoutes = require('./routes/savedJobs');
 
 const app = express();
 
-// MongoDB connection
+// Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/career-snap')
   .then(() => console.log('MongoDB connected'))
@@ -19,13 +19,15 @@ mongoose
 app.use(express.json());
 app.use(
   cors({
-    origin: 'http://localhost:5173',
+    origin: 'http://localhost:5173', // Adjust to your frontend URL
     credentials: true,
   })
 );
 
-// Routes
+// Test route
 app.get('/', (req, res) => res.send('Hello World'));
+
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/savedJobs', savedJobsRoutes);
