@@ -6,6 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const savedJobsRoutes = require('./routes/savedJobs');
+const resetPasswordRoutes = require('./routes/resetPassword'); // <-- Add this line
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.get('/', (req, res) => res.send('Hello World'));
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/savedJobs', savedJobsRoutes);
+app.use('/api/reset-password', resetPasswordRoutes); // <-- Add this line
 
 // Start server
 const PORT = process.env.PORT || 3002;
