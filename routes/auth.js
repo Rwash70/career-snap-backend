@@ -6,11 +6,9 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const Profile = require('../models/Profile');
 
-// No need to call dotenv here if called in main server file
-
 // Nodemailer transporter setup
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // or another provider
+  service: 'gmail', // or your email provider
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
@@ -125,30 +123,44 @@ router.post('/reset-password/:token', async (req, res) => {
   const { newPassword } = req.body;
 
   try {
-    const user = await Profile.findOne({
+    if (!newPassword || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: 'Password must be at least 6 characters.' });
+    }
+
+    const profile = await Profile.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() },
     });
 
-    if (!user) {
-      return res
-        .status(400)
-        .json({ message: 'Invalid or expired password reset token' });
+    if (!profile) {
+      return res.status(400).json({ message: 'Invalid or expired token.' });
     }
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    profile.password = hashedPassword;
+    profile.resetPasswordToken = undefined;
+    profile.resetPasswordExpires = undefined;
 
-    user.password = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    await profile.save();
 
-    await user.save();
+    // Send confirmation email after successful reset
+    const mailOptions = {
+      to: profile.email,
+      from: process.env.EMAIL_USER,
+      subject: 'Your password has been changed',
+      text: `Hello ${
+        profile.name || 'User'
+      },\n\nThis is a confirmation that your password has been successfully changed.\n\nIf you did not perform this action, please contact support immediately.`,
+    };
 
-    res.json({ message: 'Password reset successful' });
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: 'Password reset successful!' });
   } catch (err) {
     console.error('Reset password error:', err);
-    res.status(500).json({ message: 'Server error during password reset' });
+    res.status(500).json({ message: 'Server error.' });
   }
 });
 

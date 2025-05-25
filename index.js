@@ -6,7 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const savedJobsRoutes = require('./routes/savedJobs');
-const resetPasswordRoutes = require('./routes/resetPassword'); // <-- Add this line
+const resetPasswordRoutes = require('./routes/resetPassword'); // Reset password routes
 
 const app = express();
 
@@ -32,7 +32,9 @@ app.get('/', (req, res) => res.send('Hello World'));
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/savedJobs', savedJobsRoutes);
-app.use('/api/reset-password', resetPasswordRoutes); // <-- Add this line
+
+// Mount resetPasswordRoutes under /api/auth/reset-password
+app.use('/api/auth/reset-password', resetPasswordRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3002;
