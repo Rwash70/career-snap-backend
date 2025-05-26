@@ -13,7 +13,6 @@ const app = express();
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/career-snap')
-  .then(() => console.log('MongoDB connected'))
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Middleware
@@ -38,6 +37,4 @@ app.use('/api/auth/reset-password', resetPasswordRoutes);
 
 // Start server
 const PORT = process.env.PORT || 3002;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT);

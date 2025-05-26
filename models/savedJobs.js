@@ -10,6 +10,7 @@ const savedJobSchema = new mongoose.Schema({
   company: String,
   url: String,
   savedAt: { type: Date, default: Date.now },
+  id: String,
 });
 
 module.exports = mongoose.model('SavedJob', savedJobSchema);

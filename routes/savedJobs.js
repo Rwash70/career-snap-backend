@@ -35,12 +35,12 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete a saved job
+// Delete a saved job by MongoDB document _id
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const jobId = req.params.id;
     const deleted = await SavedJobs.findOneAndDelete({
-      id: jobId, // using the remote job id
+      _id: jobId, // Use _id instead of remote job id
       userId: req.user.userId,
     });
 
